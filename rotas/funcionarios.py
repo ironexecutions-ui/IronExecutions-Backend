@@ -72,7 +72,6 @@ def listar_usuarios():
 
     return dados
 
-
 # inserir novo usuário
 @router.post("/usuarios/inserir")
 async def inserir_usuario(request: Request):
@@ -86,22 +85,23 @@ async def inserir_usuario(request: Request):
     responsabilidade = body.get("responsabilidade")
     porcentagem = body.get("porcentagem")
     foto = body.get("foto")
+    celular = body.get("celular")
 
     conn = conectar()
     cursor = conn.cursor()
 
     query = """
-        INSERT INTO usuarios (nome, sobrenome, email, senha, funcao, responsabilidade, porcentagem, foto)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO usuarios 
+        (nome, sobrenome, email, senha, funcao, responsabilidade, porcentagem, foto, celular)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
-    cursor.execute(query, (nome, sobrenome, email, senha, funcao, responsabilidade, porcentagem, foto))
+    cursor.execute(query, (nome, sobrenome, email, senha, funcao, responsabilidade, porcentagem, foto, celular))
     conn.commit()
 
     cursor.close()
     conn.close()
 
     return {"ok": True, "mensagem": "Usuário criado com sucesso"}
-
 
 
 

@@ -43,8 +43,8 @@ def ganhos_mensais(email: str):
     cursor.execute("""
         SELECT cliente, loja, data, valor, dias, link, processo
         FROM servicos
-        WHERE processo = 'finalizado' AND usuario_id = %s
-    """, (id_usuario,))
+        WHERE processo = 'finalizado'
+    """, )
 
     servicos = cursor.fetchall()
 
@@ -100,7 +100,7 @@ def ganhos_socios():
     socios = cursor.fetchall()
 
     cursor.execute("""
-        SELECT usuario_id, cliente, loja, data, valor, dias, link, processo
+        SELECT  cliente, loja, data, valor, dias, link, processo
         FROM servicos
         WHERE processo = 'finalizado'
     """)

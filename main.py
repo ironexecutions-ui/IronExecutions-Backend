@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from rotas.funcionarios import router as funcionarios_router
 from rotas.servicos import router as servicos_router
 from rotas.ganhos import router as ganhos_router
+from rotas.contratos import router as contratos_router
+from rotas.pdf import router as pdf_router
 
 app = FastAPI()
 
@@ -18,6 +20,8 @@ app.add_middleware(
 app.include_router(funcionarios_router, prefix="/api")
 app.include_router(servicos_router)
 app.include_router(ganhos_router)
+app.include_router(contratos_router)
+app.include_router(pdf_router)
 
 @app.get("/")
 def raiz():
