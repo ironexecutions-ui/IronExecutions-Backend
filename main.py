@@ -9,7 +9,7 @@ from rotas.pdf import router as pdf_router
 app = FastAPI()
 
 origins = [
-    "https://ironexecutions.com.br"
+    "https://ironexecutions.com.br",
    "https://ironexecutions-frontend.onrender.com",
     "http://localhost:5173",
     "http://localhost:3000",
