@@ -8,15 +8,23 @@ from rotas.pdf import router as pdf_router
 
 app = FastAPI()
 
+origins = [
+    "https://ironexecutions.com.br"
+    "https://ironexecutions-backend.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "*"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# rotas
+# Rotas
 app.include_router(funcionarios_router, prefix="/api")
 app.include_router(servicos_router)
 app.include_router(ganhos_router)
