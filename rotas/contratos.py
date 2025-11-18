@@ -337,3 +337,38 @@ def apagar_contrato(id_contrato: int):
     finally:
         cursor.close()
         conn.close()
+# ====================================
+# Atualizar somente a data de assinatura
+# ====================================
+@router.put("/contratos/{id_contrato}/data")
+def atualizar_data_assinatura(id_contrato: int, dados: dict):
+    campo = dados.get("campo")
+    valor = dados.get("valor")
+
+    campos_validos = [
+        "data_assinatura_contratada",
+        "data_assinatura_cliente"
+    ]
+
+    if campo not in campos_validos:
+        raise HTTPException(status_code=400, detail="Campo inválido")
+
+    conn = conectar()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            f"UPDATE contratos SET {campo} = %s WHERE id = %s",
+            (valor, id_contrato)
+        )
+        conn.commit()
+
+        return {"ok": True, "mensagem": "Data atualizada com sucesso"}
+
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        cursor.close()
+        conn.close()
