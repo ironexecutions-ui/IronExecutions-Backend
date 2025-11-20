@@ -3,6 +3,9 @@ from database import conectar
 import random
 import string
 from datetime import datetime
+from fastapi import UploadFile, File
+import requests
+from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -372,3 +375,53 @@ def atualizar_data_assinatura(id_contrato: int, dados: dict):
     finally:
         cursor.close()
         conn.close()
+        
+@router.post("/contratos/salvar-comprovante")
+async def salvar_comprovante(id_contrato: int, arquivo: UploadFile = File(...)):
+    try:
+        # valida extensão
+        if not arquivo.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Envie um arquivo PDF válido.")
+
+        nome_arquivo = f"comprovante-{id_contrato}-{int(datetime.now().timestamp())}.pdf"
+        conteudo = await arquivo.read()
+
+        # dados fixos do supabase
+        SUPABASE_URL = "https://mtljmvivztkgoolnnwxc.supabase.co"
+        BUCKET = "assinaturas"
+        SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10bGptdml2enRrZ29vbG5ud3hjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzQwMzM0MywiZXhwIjoyMDc4OTc5MzQzfQ.XFJVnYVbK-pxJ7oftduk680YsXltdUB06Yr_buIoJPA"  # coloque aqui a key service_role
+
+        # upload REAL (sem corromper)
+        resp = requests.post(
+            f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{nome_arquivo}",
+            headers={
+                "apikey": SERVICE_KEY,
+                "Authorization": f"Bearer {SERVICE_KEY}",
+                "Content-Type": "application/pdf",
+            },
+            data=conteudo
+        )
+
+        if resp.status_code >= 300:
+            print("ERRO SUPABASE:", resp.text)
+            raise HTTPException(status_code=400, detail="Erro ao enviar PDF ao Supabase.")
+
+        url_publica = (
+            f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{nome_arquivo}"
+        )
+
+        # salva no banco MySQL
+        conn = conectar()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE contratos SET comprovante = %s WHERE id = %s",
+            (url_publica, id_contrato)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"ok": True, "url": url_publica}
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
