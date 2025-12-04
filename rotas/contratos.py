@@ -37,6 +37,9 @@ async def novo_contrato(dados: dict):
     codigo = gerar_codigo_unico(cursor)
     criado_em = datetime.now()
 
+    # páginas recebidas do frontend
+    paginas = dados.get("paginas", [])
+
     try:
         cursor.execute("""
             INSERT INTO contratos (
@@ -90,13 +93,30 @@ async def novo_contrato(dados: dict):
             dados.get("dias_suporte"),
             dados.get("cidade_foro"),
             dados.get("data_assinatura_contratada"), dados.get("data_assinatura_cliente"),
-            None,  # LOGO_ASSINATURA_CONTRATADA
-            None,  # LOGO_ASSINATURA_CLIENTE
+            None,
+            None,
             dados.get("atualizacoes_inclusas")
         ))
 
         conn.commit()
-        return {"ok": True, "codigo": codigo}
+
+        # pegar id do contrato recém criado
+        id_contrato = cursor.lastrowid
+
+        # salvar páginas se existirem
+        for pag in paginas:
+            cursor.execute(
+                "INSERT INTO paginas (contrato_id, tipo, descricao) VALUES (%s, %s, %s)",
+                (
+                    id_contrato,
+                    pag.get("tipo"),
+                    pag.get("descricao")
+                )
+            )
+
+        conn.commit()
+
+        return {"ok": True, "codigo": codigo, "id_contrato": id_contrato}
 
     except Exception as e:
         conn.rollback()
@@ -116,15 +136,16 @@ def listar_contratos():
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-      SELECT 
-    id AS id,
-    nome_cliente,
-    telefone_cliente,
-    codigo
-FROM contratos
-ORDER BY id DESC
+    SELECT 
+        id,
+        nome_cliente,
+        telefone_cliente,
+        codigo,
+        apagado
+    FROM contratos
+    ORDER BY id DESC
+""")
 
-    """)
 
     contratos = cursor.fetchall()
 
@@ -143,16 +164,30 @@ def ver_contrato(id_contrato: int):
     conn = conectar()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM contratos WHERE id = %s", (id_contrato,))
-    contrato = cursor.fetchone()
+    try:
+        cursor.execute("SELECT * FROM contratos WHERE id = %s", (id_contrato,))
+        contrato = cursor.fetchone()
 
-    cursor.close()
-    conn.close()
+        if not contrato:
+            raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
-    if not contrato:
-        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+        # pegar páginas
+        cursor.execute("""
+            SELECT id, tipo, descricao 
+            FROM paginas 
+            WHERE contrato_id = %s
+            ORDER BY id ASC
+        """, (id_contrato,))
+        contrato["paginas"] = cursor.fetchall()
 
-    return contrato
+        return contrato
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ====================================
@@ -205,16 +240,33 @@ def ver_contrato_codigo(codigo: str):
     conn = conectar()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM contratos WHERE codigo = %s", (codigo,))
-    contrato = cursor.fetchone()
+    try:
+        # pega o contrato
+        cursor.execute("SELECT * FROM contratos WHERE codigo = %s", (codigo,))
+        contrato = cursor.fetchone()
 
-    cursor.close()
-    conn.close()
+        if not contrato:
+            raise HTTPException(status_code=404, detail="Contrato não encontrado")
 
-    if not contrato:
-        raise HTTPException(status_code=404, detail="Contrato não encontrado")
+        # pega as páginas
+        cursor.execute("""
+            SELECT id, tipo, descricao
+            FROM paginas
+            WHERE contrato_id = %s
+            ORDER BY id ASC
+        """, (contrato["id"],))
 
-    return contrato
+        contrato["paginas"] = cursor.fetchall()
+
+        return contrato
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        cursor.close()
+        conn.close()
+
 # ====================================
 # Atualizar contrato existente
 # ====================================
@@ -323,15 +375,22 @@ def atualizar_contrato(id_contrato: int, dados: dict):
 # Apagar contrato
 # ====================================
 @router.delete("/contratos/{id_contrato}")
-def apagar_contrato(id_contrato: int):
+def apagar_contrato(id_contrato: int, usuario_id: int):
     conn = conectar()
     cursor = conn.cursor()
 
     try:
-        cursor.execute("DELETE FROM contratos WHERE id = %s", (id_contrato,))
+        cursor.execute("""
+            UPDATE contratos 
+            SET apagado = 1,
+                apagado_responsavel = %s,
+                apagado_datahora = NOW()
+            WHERE id = %s
+        """, (usuario_id, id_contrato))
+
         conn.commit()
 
-        return {"ok": True, "mensagem": "Contrato apagado com sucesso"}
+        return {"ok": True, "mensagem": "Contrato marcado como apagado"}
 
     except Exception as e:
         conn.rollback()
@@ -340,6 +399,7 @@ def apagar_contrato(id_contrato: int):
     finally:
         cursor.close()
         conn.close()
+
 # ====================================
 # Atualizar somente a data de assinatura
 # ====================================
@@ -425,3 +485,25 @@ async def salvar_comprovante(id_contrato: int, arquivo: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+@router.get("/paginas/{id_contrato}")
+def listar_paginas(id_contrato: int):
+    conn = conectar()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT id, tipo, descricao 
+            FROM paginas 
+            WHERE contrato_id = %s
+            ORDER BY id ASC
+        """, (id_contrato,))
+
+        paginas = cursor.fetchall()
+        return paginas
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        cursor.close()
+        conn.close()
