@@ -455,3 +455,31 @@ def apagar_contrato(id_contrato: int, usuario_id: int):
         cursor.close()
         conn.close()
 
+@router.get("/contratos/{id_contrato}")
+def obter_contrato(id_contrato: int):
+    conn = conectar()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("SELECT * FROM contratos WHERE id = %s", (id_contrato,))
+        contrato = cursor.fetchone()
+
+        if not contrato:
+            raise HTTPException(status_code=404, detail="Contrato não encontrado")
+
+        cursor.execute("""
+            SELECT id, tipo, descricao 
+            FROM paginas 
+            WHERE contrato_id = %s
+            ORDER BY id ASC
+        """, (id_contrato,))
+        contrato["paginas"] = cursor.fetchall()
+
+        return contrato
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    finally:
+        cursor.close()
+        conn.close()
