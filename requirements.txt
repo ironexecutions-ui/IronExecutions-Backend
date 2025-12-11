@@ -1,8 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
 mysql-connector-python
 pydantic
 python-multipart
 reportlab
 requests
 bcrypt
+supabase==2.4.1
+python-dotenv
+PyJWT
